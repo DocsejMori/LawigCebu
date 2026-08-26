@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LawigCebu</title>
+  
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <!-- Leaflet GeoSearch CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.css" />
+  <!-- Google Fonts: Inter & JetBrains Mono -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Main Split 3-Column Workspace Layout -->
+  <div class="app-workspace">
+    
+    <!-- ================= LEFT COLUMN: CONTROL & PLANNING PANEL ================= -->
+    <aside class="panel controls-panel">
+      
+      <!-- Brand Header -->
+      <div class="panel-header">
+        <div class="brand">
+       <div class="brand-icon">
+    <img src="picture/lawigcebu.png" alt="Logo" class="small-logo">
+</div>
+          <div>
+            <h1>LawigCebu</h1>
+            <p>Emergency Disaster-Response Routing</p>
+          </div>
+        </div>
+        <div class="brand-badge-group">
+          <span class="status-dot-pulse"></span>
+          <span class="badge-prototype">PROTOTYPE</span>
+        </div>
+      </div>
+
+      <!-- SECTION 1: ROUTE PLANNER -->
+      <div class="section-card">
+        <div class="section-card-header">
+          <span class="section-title">ROUTE PLANNER</span>
+          <span class="section-step">Step 1 of 3</span>
+        </div>
+        
+        <!-- Starting Point -->
+        <div class="input-field" id="group-start">
+          <label for="select-start">Starting Point (Origin)</label>
+          <div class="picker-input-row">
+            <select id="select-start" onchange="handleDropdownChange('start')">
+              <option value="custom" selected>📍 Custom Map / Searched Location</option>
+            </select>
+            <button type="button" class="btn btn-map-pick" onclick="enableMapClickMode('start')">
+              📍 Click Map
+            </button>
+          </div>
+          <span class="helper-text" id="helper-start">Search a location or click directly on the map.</span>
+        </div>
+
+        <!-- Destination Point -->
+        <div class="input-field" id="group-end" style="margin-top: 10px;">
+          <label for="select-end">Destination Point</label>
+          <div class="picker-input-row">
+            <select id="select-end" onchange="handleDropdownChange('end')">
+              <option value="custom" selected>🎯 Custom Map / Searched Location</option>
+            </select>
+            <button type="button" class="btn btn-map-pick" onclick="enableMapClickMode('end')">
+              🎯 Click Map
+            </button>
+          </div>
+          <span class="helper-text" id="helper-end">Search a destination or click directly on the map.</span>
+        </div>
+
+        <!-- Emergency Vehicle Type -->
+        <div class="input-field" style="margin-top: 10px;">
+          <label for="select-vehicle">Emergency Vehicle Class</label>
+          <select id="select-vehicle" onchange="runRouteCalculation()">
+            <option value="none">🚫 Standard Navigation (No Priority)</option>
+            <option value="ambulance" selected>🚑 Type II Ambulance (Priority & Hospital Access)</option>
+            <option value="fire_truck">🚒 Heavy Fire Engine (Wading: 60cm | Major Roads)</option>
+            <option value="rescue">🛻 8x8 Rescue Truck (Wading: 80cm | High Clearance)</option>
+            <option value="evacuation">🚐 Evacuation Bus (High-Capacity Arterials)</option>
+          </select>
+        </div>
+
+        <!-- Primary Action Button -->
+        <button id="btn-calculate" class="btn btn-primary-calculate" onclick="runRouteCalculation()">
+          🛡️ CALCULATE SAFE ROUTE
+        </button>
+
+        <div class="button-row" style="margin-top: 8px;">
+          <button class="btn btn-secondary" onclick="resetSystem()">Reset System</button>
+        </div>
+      </div>
+
+      <!-- SECTION 2: HAZARD REPORTING -->
+      <div class="section-card hazard-section-card">
+        <div class="section-card-header">
+          <span class="section-title">HAZARD MANAGEMENT</span>
+          <button class="btn-text-danger" onclick="clearHazards()">Clear All</button>
+        </div>
+        
+        <div class="hazard-inputs-grid">
+          <div class="input-field">
+            <label for="hazard-type">Hazard Type</label>
+            <select id="hazard-type">
+              <option value="Flood">🌊 Flash Flood</option>
+              <option value="Road Closure">🚧 Road Closure</option>
+              <option value="Landslide">🪨 Landslide / Debris</option>
+              <option value="Severe Congestion">🚦 Severe Panic Congestion</option>
+              <option value="Structural Damage">🏚 Infrastructure Damage</option>
+            </select>
+          </div>
+
+          <div class="input-field">
+            <label for="hazard-severity">Severity Level</label>
+            <select id="hazard-severity">
+              <option value="Low">Low Risk</option>
+              <option value="Medium">Medium Risk</option>
+              <option value="High" selected>High Risk</option>
+              <option value="Critical">Critical / Hard Block</option>
+            </select>
+          </div>
+
+          <div class="input-field full-width">
+            <label for="hazard-radius">Impact Radius: <span id="radius-val" class="highlight-val">300</span> meters</label>
+            <input type="range" id="hazard-radius" min="100" max="1000" step="50" value="300" oninput="document.getElementById('radius-val').innerText = this.value">
+          </div>
+        </div>
+
+        <button id="btn-toggle-hazard-mode" class="btn btn-hazard-add" onclick="enableMapClickMode('hazard')">
+          ⚠️ Click Map to Place Hazard Area
+        </button>
+      </div>
+
+      <!-- SECTION 3: DISASTER SCENARIO PRESETS -->
+      <div class="section-card scenario-card">
+        <div class="section-card-header">
+          <span class="section-title">DISASTER SCENARIOS</span>
+          <span class="badge-scenario">DEMO PRESET</span>
+        </div>
+        <p class="scenario-desc">Simulate multiple road obstructions and flooding caused by a severe typhoon across Metro Cebu.</p>
+        <button class="btn btn-scenario-trigger" onclick="triggerTyphoonScenario()">
+          🌪️ Run Typhoon Disaster Scenario
+        </button>
+      </div>
+
+    </aside>
+
+
+    <!-- ================= CENTER COLUMN: MAP VIEWPORT ================= -->
+    <main class="map-workspace-main">
+      <div id="map" class="map-viewport"></div>
+
+      <!-- Map Overlay Legend -->
+      <div class="map-legend">
+        <div class="legend-title">Map Layers Legend</div>
+        <div class="legend-item"><span class="legend-color road-net"></span> Local Road Network</div>
+        <div class="legend-item"><span class="legend-color safe-route"></span> Recommended Safe Route</div>
+        <div class="legend-item"><span class="legend-color direct-route"></span> Direct / Affected Route</div>
+        <div class="legend-item"><span class="legend-color hazard-zone"></span> Active Hazard / Impact Zone</div>
+      </div>
+    </main>
+
+
+    <!-- ================= RIGHT COLUMN: COMMAND DASHBOARD & INTELLIGENCE ================= -->
+    <aside class="panel dashboard-panel">
+      
+      <!-- Telemetry Dashboard Card -->
+      <div class="telemetry-card">
+        <div class="telemetry-header">
+          <span class="telemetry-title">ROUTE INTELLIGENCE & STATUS</span>
+          <span id="system-status-pill" class="status-pill status-ok">OPERATIONAL</span>
+        </div>
+
+        <div class="dashboard-grid">
+          <div class="dash-item">
+            <span class="dash-label">Risk Assessment</span>
+            <strong id="dash-risk" class="dash-val status-green">READY</strong>
+          </div>
+          <div class="dash-item">
+            <span class="dash-label">Est. Travel Time</span>
+            <strong id="dash-eta" class="dash-val">-- min</strong>
+          </div>
+          <div class="dash-item">
+            <span class="dash-label">Total Distance</span>
+            <strong id="dash-distance" class="dash-val">-- km</strong>
+          </div>
+          <div class="dash-item">
+            <span class="dash-label">Roads Affected</span>
+            <strong id="dash-affected" class="dash-val">0</strong>
+          </div>
+        </div>
+
+        <div class="metric-row">
+          <span>Active Hazards:</span>
+          <strong id="dash-hazards">0</strong>
+        </div>
+      </div>
+
+      <!-- Dynamic Route Summary Card -->
+      <div id="route-summary-card" class="route-summary-box empty-state">
+        <div class="summary-header">
+          <span class="summary-badge">ROUTE SUMMARY</span>
+          <span id="summary-route-status">No active route</span>
+        </div>
+        <p class="summary-body-text" id="summary-route-desc">Select a starting point and destination on the map or dropdowns, then click calculate.</p>
+      </div>
+
+      <!-- "Why This Route?" Explanation Box -->
+      <div class="section-card explanation-card" style="flex-grow: 1;">
+        <div class="section-card-header">
+          <span class="section-title">WHY THIS ROUTE?</span>
+          <span class="badge-ai">AI EXPLAINABILITY</span>
+        </div>
+        <ul class="explanation-list" id="explanation-list">
+          <li>System is standing by for origin and destination input.</li>
+          <li>Algorithms evaluate road weightings, vehicle clearance, and real-time hazard buffers.</li>
+        </ul>
+      </div>
+
+    </aside>
+
+  </div>
+
+  <!-- Leaflet JS, GeoSearch JS, & Turf.js GIS Library -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-geosearch@3.11.0/dist/geosearch.umd.js"></script>
+  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+  <script src="script.js"></script>
+
+</body>
+</html>
